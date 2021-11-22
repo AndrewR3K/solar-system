@@ -1,4 +1,4 @@
-# evetwo
+# Vue 2.* + Three.js Solar System
 
 ## Project setup
 ```
