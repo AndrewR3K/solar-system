@@ -1,17 +1,23 @@
 import { Galaxy } from '@/models/Orbitals'
 import { ref } from 'vue'
 
-export function useGenerator(systemCount: number): { galaxy: any; galaxyGenerating: any } {
-  let galaxy: any = {}
+export function useGenerator(): { generateGalaxy: (systemCount: any, scene: any) => any; galaxyGenerating: any } {
   const galaxyGenerating = ref(false)
-  galaxyGenerating.value = true
-  galaxy = new Galaxy()
-  galaxy.generate(systemCount ?? 1000, () => {
-    console.log('done')
-    setTimeout(() => {
-      galaxyGenerating.value = false
-    }, 1000)
-  })
 
-  return { galaxy, galaxyGenerating }
+
+  const generateGalaxy = (systemCount: any, scene: any) => {
+    let galaxy: any = {}
+    galaxyGenerating.value = true
+    galaxy = new Galaxy(scene)
+    galaxy.generate(systemCount ?? 1000, () => {
+      setTimeout(() => {
+        galaxyGenerating.value = false
+      }, 1000)
+    })
+
+    return galaxy
+  }
+
+
+  return { generateGalaxy, galaxyGenerating }
 }

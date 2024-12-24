@@ -1,29 +1,26 @@
 <template>
-  <main class="max-w-5xl mx-auto">
-    <div ref="universe" id="universe" class="bg-slate-600 w-full aspect-video"></div>
+  <main class="">
+    <div ref="universe" id="universe" class="bg-slate-600 w-screen aspect-video"></div>
   </main>
 </template>
 <script setup lang="ts">
 // @ts-ignore
 import * as THREE from 'three';
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 // @ts-ignore
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-
-
-// import { Player } from '@/composables/Player';
-
+import { FlyControls } from "three/addons/controls/FlyControls.js";
 
 import { useGenerator } from '@/composables/Generator';
 const universe = ref<HTMLDivElement | null>(null)
-const { galaxyGenerating, galaxy } = useGenerator(5)
+const { generateGalaxy } = useGenerator();
+let onWindowResize: { (): void; (this: Window, ev: UIEvent): any; (this: Window, ev: UIEvent): any; } | undefined = undefined;
 
 class View {
   scene: THREE.Scene | null;
   camera: THREE.PerspectiveCamera | null;
   renderer: THREE.WebGLRenderer | null;
   galaxy: any;
-  controls: OrbitControls | null;
+  controls: FlyControls | null;
 
   constructor() {
     this.scene = null;
@@ -34,32 +31,36 @@ class View {
 
   setupControls() {
     // User Controls
-    this.controls = new OrbitControls(this.camera, universe?.value);
-    this.controls.target.set(0, 0, 0);
-    this.controls.enabled = true;
-    this.controls.minDistance = 8;
-    this.controls.maxDistance = 1500;
-    this.controls.update();
-  }
+    this.controls = new FlyControls(this.camera, universe?.value);
+    this.controls.movementSpeed = 1;
+    this.controls.rollSpeed = Math.PI / 192;
+    this.controls.autoForward = false;
+    this.controls.dragToLook = true;
 
-  addLight() {
-    // Create a PointLight with the color white (0xffffff), intensity of 10, and distance of 10
-    let lightsource = new THREE.PointLight(0xffffff, 2, 10000, 2);
-    lightsource.position.set(0, 0, 0);
-    // Add the light to the scene
-    this.scene.add(lightsource);
+    // Increase movement speed when shift key is pressed
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Shift') {
+        this.controls.movementSpeed = 5;
+      }
+    });
+
+    window.addEventListener('keyup', (event) => {
+      if (event.key === 'Shift') {
+        this.controls.movementSpeed = 1;
+      }
+    });
   }
 
   setupScene() {
+    let updateables: any[] = [];
     this.scene = new THREE.Scene();
     let container = document.getElementById('universe') as HTMLDivElement;
 
     let { width, height } = container.getBoundingClientRect();
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);
-
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000000);
+    this.camera.position.set(0, 0, 1000);
 
     this.setupControls();
-    this.addLight();
 
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
     this.renderer.setSize(width, height);
@@ -68,45 +69,73 @@ class View {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // Fog
-    this.scene.fog = new THREE.Fog(0x23272a, 0.5, 1700, 4000);
-
-
     universe?.value?.appendChild(this.renderer.domElement);
-    console.log(galaxy)
+
+    const galaxy = generateGalaxy(100, this.scene);
+
     // @ts-ignore
     galaxy.solarSystems.forEach(solarSystem => {
+      if (solarSystem.update) {
+        updateables.push(solarSystem);
+      }
 
-      // @ts-ignore
+      // @ts-expect-error: solarSystem.children may not have 'update' method
       solarSystem.children.forEach(star => {
-        // TODO: Add stars
+        if (star.update) {
+          updateables.push(star);
+        }
 
+        // this.createStar(star.size, star.getRandomColor('star'), star.position);
 
-        // @ts-ignore
+        // @ts-expect-error
         star.children.forEach(celestialBody => {
-          // TODO: Add celestial bodies
+          if (celestialBody.update) {
+            updateables.push(celestialBody);
+          }
+
+          // this.createCelestialBody(celestialBody.size, celestialBody.getRandomColor('cool'), celestialBody.position);
+
+          // @ts-ignore
+          celestialBody.children.forEach(moon => {
+            if (moon.update) {
+              updateables.push(moon);
+            }
+
+            // this.createCelestialBody(moon.size, moon.getRandomColor('grey'), moon.position);
+          });
         });
       });
     });
 
-
-
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    this.scene.add(cube);
-
+    onWindowResize = () => {
+      const { width, height } = container.getBoundingClientRect();
+      this.camera.aspect = width / height;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(width, height);
+    };
+    window.addEventListener('resize', onWindowResize);
 
     let animate = () => {
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
+      // updateLightPosition();
 
+      // Perform each opjects update function.
+      updateables.forEach((object) => {
+        object.update();
+      });
+
+      this.controls.update(1); // Pass delta time to update method
       this.renderer.render(this.scene, this.camera);
     }
 
     this.renderer.setAnimationLoop(animate);
   }
 }
+
+onUnmounted(() => {
+  if (onWindowResize) {
+    window.removeEventListener('resize', onWindowResize);
+  }
+});
 
 onMounted(() => {
   const view: View = new View();
