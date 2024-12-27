@@ -65,3 +65,8 @@
     </section>
   </main>
 </template>
+<script setup lang="ts">
+import { useNavStore } from '@/stores/navbar';
+let navStore = useNavStore()
+navStore.setTheme('standard')
+</script>

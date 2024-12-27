@@ -1,6 +1,6 @@
 <template>
-  <main class="">
-    <div ref="universe" id="universe" class="bg-slate-600 w-screen aspect-video"></div>
+  <main>
+    <div ref="universe" id="universe" class="bg-slate-600 w-screen h-screen"></div>
   </main>
 </template>
 <script setup lang="ts">
@@ -11,6 +11,13 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import { FlyControls } from "three/addons/controls/FlyControls.js";
 
 import { useGenerator } from '@/composables/Generator';
+
+import { useNavStore } from '@/stores/navbar';
+// import { Star, Planet, Moon, SolarSystem, Galaxy } from '@/models/Orbitals';
+
+let navStore = useNavStore()
+navStore.setTheme('explorer')
+
 const universe = ref<HTMLDivElement | null>(null)
 const { generateGalaxy } = useGenerator();
 let onWindowResize: { (): void; (this: Window, ev: UIEvent): any; (this: Window, ev: UIEvent): any; } | undefined = undefined;
@@ -74,6 +81,9 @@ class View {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
     this.renderer.setSize(width, height);
 
+    // Enable shader debugging
+    this.renderer.debug.checkShaderErrors = true;
+
     // Shadows
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -94,9 +104,10 @@ class View {
 
     window.addEventListener('resize', onWindowResize);
 
-    let animate = () => {
+    let animate = (time: number) => {
+      const scaledTime = time / 1000; // Scale down the time to slow down the orbiting speed
       updateables.forEach((object) => {
-        object.update(this.camera, this.scene);
+        object.update(this.camera, scaledTime); // Pass scaledTime to update method
       });
 
       this.controls.update(1); // Pass delta time to update method
