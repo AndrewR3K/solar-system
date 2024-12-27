@@ -6,6 +6,22 @@ const getRandomNumber = (max: number, min: number) => {
   return Math.random() * (max - min) + min
 }
 
+const starMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  emissive: 0xffffff,
+  emissiveIntensity: 90000
+});
+
+const planetMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  roughness: 100
+});
+
+const moonMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  roughness: 100
+});
+
 export class Orbital {
   id: string
   children: [Orbital?]
@@ -29,45 +45,34 @@ export class Orbital {
     this.scene = scene
   }
 
+  calculateDistance(camera: THREE.PerspectiveCamera, object: THREE.Object3D): number {
+    return camera.position.distanceTo(object.position);
+  }
+
   public createBody(type: string, scene: any) {
+    let material, geometry;
     if (type == 'star') {
-      this.body = this.getRandomColor('star')
-      const geometry = new THREE.SphereGeometry(this.size, 32, 32);
-      const material = new THREE.MeshStandardMaterial({
-        color: this.color,
-        emissive: this.color,
-        emissiveIntensity: 90000
-      });
-
-      this.body = new THREE.Mesh(geometry, material);
-      this.body.position.copy(this.position);
-      scene.add(this.body);
-      return this.body;
+      this.color = this.getRandomColor('star');
+      geometry = new THREE.SphereGeometry(this.size, 32, 32);
+      material = starMaterial.clone();
+      material.color.set(this.color);
+      material.emissive.set(this.color);
     } else if (type == 'planet') {
-      this.body = this.getRandomColor('cool')
-      const geometry = new THREE.SphereGeometry(this.size, 32, 32);
-      const material = new THREE.MeshStandardMaterial({
-        color: this.color,
-        roughness: 100  // Low roughness for a smooth surface
-      });
-
-      this.body = new THREE.Mesh(geometry, material);
-      this.body.position.copy(this.position);
-      scene.add(this.body);
-      return this.body;
+      this.color = this.getRandomColor('cool');
+      geometry = new THREE.SphereGeometry(this.size, 32, 32);
+      material = planetMaterial.clone();
+      material.color.set(this.color);
     } else if (type == 'moon') {
-      this.body = this.getRandomColor('grey')
-      const geometry = new THREE.SphereGeometry(this.size, 32, 32);
-      const material = new THREE.MeshStandardMaterial({
-        color: this.color,
-        roughness: 100  // Low roughness for a smooth surface
-      });
-
-      this.body = new THREE.Mesh(geometry, material);
-      this.body.position.copy(this.position);
-      scene.add(this.body);
-      return this.body
+      this.color = this.getRandomColor('grey');
+      geometry = new THREE.SphereGeometry(this.size, 32, 32);
+      material = moonMaterial.clone();
+      material.color.set(this.color);
     }
+
+    this.body = new THREE.Mesh(geometry, material);
+    this.body.position.copy(this.position);
+    scene.add(this.body);
+    return this.body;
   }
 
   public addChild = (child: Orbital) => {
@@ -142,7 +147,7 @@ export class Star extends Orbital {
     this.createBody(this.type, this.scene)
 
     // Add light to the star
-    const starLight = new THREE.PointLight(this.color, 10000, 100000); // White light, intensity 1, distance 1000
+    const starLight = new THREE.PointLight(this.color, 10000, 900000);
     starLight.position.copy(this.position);
     this.scene.add(starLight);
   }
@@ -172,6 +177,17 @@ export class Moon extends Orbital {
     )
 
     this.createBody(this.type, this.scene)
+  }
+
+  public update = (camera: THREE.PerspectiveCamera) => {
+    const distance = this.calculateDistance(camera, this.body);
+    const renderDistance = 1000; // Set your desired render distance
+
+    if (distance < renderDistance) {
+      this.body.visible = true;
+    } else {
+      this.body.visible = false;
+    }
   }
 }
 
@@ -219,6 +235,17 @@ export class Planet extends Orbital {
       this.addChild(moon)
     }
   }
+
+  public update = (camera: THREE.PerspectiveCamera) => {
+    const distance = this.calculateDistance(camera, this.body);
+    const renderDistance = 4000; // Set your desired render distance
+
+    if (distance < renderDistance) {
+      this.body.visible = true;
+    } else {
+      this.body.visible = false;
+    }
+  }
 }
 
 export class SolarSystem extends Orbital {
@@ -239,12 +266,7 @@ export class SolarSystem extends Orbital {
 
     this.addChild(this.myStar)
 
-    let planetCount
-    if (this.myStar.size < 3) {
-      planetCount = Math.random() * (2 - 1) + 1
-    } else {
-      planetCount = Math.random() * (maxPlanets - 1) + 1
-    }
+    let planetCount = Math.min(8, Math.floor(Math.random() * (maxPlanets * (this.myStar.size / 10))));
 
     //Generate random amount of planets
     for (let i = 0; i < planetCount; i++) {

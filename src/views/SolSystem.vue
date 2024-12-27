@@ -15,6 +15,15 @@ const universe = ref<HTMLDivElement | null>(null)
 const { generateGalaxy } = useGenerator();
 let onWindowResize: { (): void; (this: Window, ev: UIEvent): any; (this: Window, ev: UIEvent): any; } | undefined = undefined;
 
+function addUpdateables(object: any, updateables: any[]) {
+  if (object.update) {
+    updateables.push(object);
+  }
+  if (object.children) {
+    object.children.forEach((child: any) => addUpdateables(child, updateables));
+  }
+}
+
 class View {
   scene: THREE.Scene | null;
   camera: THREE.PerspectiveCamera | null;
@@ -72,39 +81,8 @@ class View {
     universe?.value?.appendChild(this.renderer.domElement);
 
     const galaxy = generateGalaxy(100, this.scene);
-
-    // @ts-ignore
-    galaxy.solarSystems.forEach(solarSystem => {
-      if (solarSystem.update) {
-        updateables.push(solarSystem);
-      }
-
-      // @ts-expect-error: solarSystem.children may not have 'update' method
-      solarSystem.children.forEach(star => {
-        if (star.update) {
-          updateables.push(star);
-        }
-
-        // this.createStar(star.size, star.getRandomColor('star'), star.position);
-
-        // @ts-expect-error
-        star.children.forEach(celestialBody => {
-          if (celestialBody.update) {
-            updateables.push(celestialBody);
-          }
-
-          // this.createCelestialBody(celestialBody.size, celestialBody.getRandomColor('cool'), celestialBody.position);
-
-          // @ts-ignore
-          celestialBody.children.forEach(moon => {
-            if (moon.update) {
-              updateables.push(moon);
-            }
-
-            // this.createCelestialBody(moon.size, moon.getRandomColor('grey'), moon.position);
-          });
-        });
-      });
+    galaxy.solarSystems.forEach((solarSystem: any) => {
+      addUpdateables(solarSystem, updateables);
     });
 
     onWindowResize = () => {
@@ -113,14 +91,12 @@ class View {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(width, height);
     };
+
     window.addEventListener('resize', onWindowResize);
 
     let animate = () => {
-      // updateLightPosition();
-
-      // Perform each opjects update function.
       updateables.forEach((object) => {
-        object.update();
+        object.update(this.camera, this.scene);
       });
 
       this.controls.update(1); // Pass delta time to update method
