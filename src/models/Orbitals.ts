@@ -341,8 +341,6 @@ export class SolarSystem extends Orbital {
 
   public generate = (maxPlanets: number, maxMoons: number, existingStars: Star[] = []) => {
     this.type = 'solarSystem'
-
-    // Generate a single star
     let attempts = 0
     do {
       this.myStar = Star.acquire(this.scene)
